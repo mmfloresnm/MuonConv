@@ -34,7 +34,7 @@ Double_t calcW(UInt_t  Z, Double_t A, Double_t Egamma, Double_t xplus){
 
 void pairprodmc(){
 
-UInt_t nbins = 100;
+UInt_t nbins = 50;
 
 TCanvas *Canvas1 = new TCanvas("Canvas1","Canvas1",0,100,600,500);
 
@@ -45,31 +45,25 @@ TH1F *MuonSpHist_1000 = new TH1F("MuonSpHist_1000","Muon + Energy Dist.; x+; Cou
 
 vector<TH1F* > test;
 
-std::cout << "Size of test: " << test.size() << "\n";
-
 test.push_back(MuonSpHist_10);	
 test.push_back(MuonSpHist_100);	
 test.push_back(MuonSpHist_1000);	
-
-std::cout << "Size of test: " << test.size() << "\n";
-
 
 UInt_t nev = 1e6;
 
 UInt_t Z = 4;
 Double_t A = 9.01218;
 
-
 Double_t xplus;
 Double_t xmin;
 Double_t xmax;
-Double_t r[6];
+Double_t r[2];
 
 Double_t count = 0;
 
 for(UInt_t i = 0; i < 3; ++i){
 
-	Double_t Egamma = pow(10,i + 1);
+	Double_t Egamma = pow(10.0,i + 1);
 
 	// Calculate xmin/xmax
 
@@ -78,8 +72,8 @@ for(UInt_t i = 0; i < 3; ++i){
 
 	for(UInt_t j=0; j < nev; ++j){
 		
-		for(UInt_t k = 0; k < 6; ++k){
-		r[k] = gRandom->Uniform();
+		for(UInt_t k = 0; k < 2; ++k){
+		r[k] = gRandom->Uniform(0,1);
 		}
 
 		xplus = xmin + r[0]*(xmax-xmin);
@@ -98,8 +92,9 @@ for(UInt_t i = 0; i < 3; ++i){
 }
 
 Canvas1->cd();
-test.at(0)->Draw();
+test.at(2)->Draw();
 test.at(1)->Draw("SAME");
-test.at(2)->Draw("SAME");
+test.at(0)->Draw("SAME");
+
 
 }

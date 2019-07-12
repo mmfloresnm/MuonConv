@@ -28,14 +28,14 @@ Double_t fitf(Double_t *x, Double_t *par)
 	return fitval;
 }
 
-void muonconvmc_wrk(){
+void muonconvmc(){
 
 //--------------------------------------------------------------------
 
 Int_t nbins = 250;
 
 TCanvas *Canvas1 = new TCanvas("Canvas1","Photon Energy Dist.",0,100,600,500);
-TCanvas *Canvas2 = new TCanvas("Canvas2","Tests",0,100,600,500);
+//TCanvas *Canvas2 = new TCanvas("Canvas2","Tests",0,100,600,500);
 
 
 TH1F *PhotonEHist = new TH1F("PhotonEHist","Photon Energy Dist.; Photon Energy [GeV]; Count [#]",nbins,minE,maxE);
@@ -75,8 +75,6 @@ Double_t beta;	 // Beta of pion
 Double_t Egamma1;// Forward photon energy [GeV]
 Double_t Egamma2;// Backward photon energy [GeV]
 
-Double_t Aval;
-
 // Creation of Photon Energy Distributions
 
 for(UInt_t i = 0; i < num; ++i){
@@ -85,12 +83,6 @@ for(UInt_t i = 0; i < num; ++i){
 	Epi = gRandom->Uniform(minE,maxE);
 
 	x = &Epi;
-
-	Aval = fitf(x,params);
-
-
-
-//	std::cout << "Aval: " << Aval << std::endl;
 
 	gamma = Epi/PIZERO_MASS;
 	beta = sqrt(1-1/pow(gamma,2));
@@ -104,9 +96,6 @@ for(UInt_t i = 0; i < num; ++i){
 
 Canvas1->cd();
 PhotonEHist->Draw();
-
-
-TestsH->Draw();
 
 f->Close();
 
