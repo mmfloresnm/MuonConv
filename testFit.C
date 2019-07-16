@@ -9,6 +9,7 @@
 #include <string>
 #include <Riostream.h>
 #include <TH1F.h>
+#include <TGraph.h>
 #include <TMath.h>
 #include <TRandom.h>
 #include <TCanvas.h>
@@ -34,16 +35,15 @@ void testFit(){
 	Canvas1->SetLogx();
 	Canvas1->SetLogy();
 
-	TH1F *h1 =(TH1F*)f->Get("Table 12/Hist1D_y1");
+	TGraphAsymmErrors *g1 =(TGraphAsymmErrors*)f->Get("Table 12/Graph1D_y1");
 
 	TF1 *func = new TF1("fitf",fitf,0.5,50,4);
-    func->SetParameters(1,1,1,-1);
+	func->SetParameters(1,1,2,-1);
 
-    h1->Fit(func,"MRE");
+    g1->Fit(func,"MRE");
     std::cout << "\nChiSquare / NDoF: " << func->GetChisquare() << " / " << func->GetNDF() << "\n\n";
 
-	h1->SetDirectory(0); // Not sure why I need this
-	h1->Draw();
+	g1->Draw();
 
 	f->Close();
 }
