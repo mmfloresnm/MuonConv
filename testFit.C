@@ -1,6 +1,6 @@
 // testFit.C
 // Marcos Flores
-// 2019 July 8;
+// 2019 July 16;
 //
 // Testing bed for fitting date from ATLAS paper
 //
