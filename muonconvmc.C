@@ -19,7 +19,13 @@
 #include "TLorentzVector.h"
 
 #define PIZERO_MASS 0.134977 // GeV
-#define NDECAY 5e6 // Number of Decays computed
+#define MUON_MASS 0.10565837 // GeV
+#define e_MASS 5.109989e-4 // GeV
+
+#define NDECAY 1e6 // Number of Decays computed
+
+#define ZSi 14 
+#define ASi 28.0855 
 
 Double_t fitf(Double_t *x, Double_t *par)
 // Fit Function for the ATLAS Data
@@ -56,6 +62,51 @@ vector<Double_t> gammaprod(Double_t pt,Double_t eta,Double_t phi){
 	return outv;
 }
 
+Double_t calcW(UInt_t  Z, Double_t A, Double_t Egamma, Double_t xplus){
+// Calculates the W parameter described in "Monte Carlo Generator for Muon
+// Pair Production"
+
+	Double_t B;
+	Double_t Dn;
+
+	if(Z == 1){
+		B = 202.4;
+		Dn = 1.49;
+	}else{
+		B = 183;
+		Dn = 1.54*pow(A,0.27);
+	}
+
+	Double_t Winf = B*pow(Z,-1.0/3.0)/Dn * MUON_MASS/e_MASS;
+
+	if(xplus == 1){
+		return Winf;
+	}else{
+		Double_t delta = pow(MUON_MASS,2)/(2*Egamma*xplus*(1-xplus));
+		Double_t W = Winf*(1 + (Dn*sqrt(TMath::E()) - 2)*delta/MUON_MASS)/(1 + B*pow(Z,-1.0/3.0)*sqrt(TMath::E())*delta/e_MASS);
+		return W;
+	}
+
+}
+
+Double_t muonprod(Double_t Egamma){
+
+	Double_t xmin = 1.0/2.0 - sqrt(1.0/4.0 - MUON_MASS/Egamma);
+	Double_t xmax = 1.0/2.0 + sqrt(1.0/4.0 - MUON_MASS/Egamma);
+
+	Double_t xplus = xmin + gRandom->Uniform(0,1)*(xmax-xmin);
+
+	Double_t W = calcW(ZSi, ASi, Egamma, xplus);
+	Double_t Winf = calcW(ZSi, ASi, Egamma, 1);
+
+	// std::cout << "W: " << W << "\tWinf: " << Winf;
+
+	Double_t nDiffCross = (1-(4.0/3.0)*xplus*(1-xplus))*TMath::Log(W)/TMath::Log(Winf);
+
+	return nDiffCross;
+
+}
+
 void muonconvmc(){
 
 //--------------------------------------------------------------------
@@ -65,11 +116,13 @@ void muonconvmc(){
 Int_t nbins = 100;
 
 TCanvas *Canvas1 = new TCanvas("Canvas1","Photon Energy Dist.",0,100,600,500);
-// TCanvas *Canvas2 = new TCanvas("Canvas2","",0,100,600,500);
+TCanvas *Canvas2 = new TCanvas("Canvas2","",0,100,600,500);
 
 TH1F *PhotonEHist = new TH1F("PhotonEHist","Photon Energy Dist.; Photon Energy [GeV]; Count [#]",nbins,0,25);
 
 TH1F *AtlasH = new TH1F("AtlasH","MC Atlas Histogram ; pT [GeV]; Count [#]",nbins,0.5,50);
+
+TH1F *CrossHist = new TH1F("CrossHist","Generated Cross Section; Value; Count [#]",nbins,0,0.25);
 
 //--------------------------------------------------------------------
 // Fitting ATLAS Function
@@ -104,6 +157,7 @@ func->SetParameters(params);
 
 //--------------------------------------------------------------------
 // Enter main generation
+//--------------------------------------------------------------------
 
 Int_t num = NDECAY; // Number of Decays
 
@@ -111,32 +165,45 @@ Double_t pizero_pt; // Random pi zero pT based on ATLAS distribution
 Double_t eta;    	// random eta of pion (assumed flat)
 Double_t phi; 	 	// random phi of pion (assumed flat)
 
+
 TLorentzVector pizero;
 vector<Double_t> photovect;
+
+Double_t nDiffCross;
 
 for(UInt_t i = 0; i < NDECAY; ++i){
 
 	// Get a pT for the neutral pion
-	pizero_pt = func->GetRandom();
+	pizero_pt = func->GetRandom(6,50);
+
+	AtlasH->Fill(pizero_pt);
 
 	// Generate random eta & phi (these are assumed flat for now)
 	eta = gRandom->Uniform(-1,1);
 	phi = gRandom->Uniform(-TMath::Pi(),TMath::Pi());
 
 	// Generate two photons provided the above parameters
-	photovect = gammaprod(pizero_pt,eta,phi);	
+	photovect = gammaprod(pizero_pt,eta,phi);
 
-	PhotonEHist->Fill(photovect.at(0));
-	PhotonEHist->Fill(photovect.at(1));
+
+	for(UInt_t j = 0; j < 2; ++j){
+		if(photovect.at(j) > 4*MUON_MASS){
+			PhotonEHist->Fill(photovect.at(j));
+			nDiffCross = muonprod(photovect.at(j));
+			// std::cout << "\t Egamma: " << photovect.at(j) << "\tnDiffCross: " << nDiffCross << std::endl;
+			CrossHist->Fill(nDiffCross);
+		}
+
+	}
 
 }
 
-Canvas1->SetLogy();
+f->Close();
 
 Canvas1->cd();
 PhotonEHist->Draw();
 
-
-f->Close();
+Canvas2->cd();
+CrossHist->Draw();
 
 }
