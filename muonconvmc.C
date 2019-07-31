@@ -1,6 +1,6 @@
 // muonconvmc.C
 // Marcos Flores
-// 2019 July 19;
+// 2019 July 25;
 //
 // Monte-Carlo for \pi_0\to 2\gamma
 // 
@@ -24,7 +24,7 @@
 
 #define NDECAY 1e6 // Number of Decays computed
 
-#define ZSi 14 
+#define ZSi 14.0
 #define ASi 28.0855 
 
 Double_t fitf(Double_t *x, Double_t *par)
@@ -89,21 +89,50 @@ Double_t calcW(UInt_t  Z, Double_t A, Double_t Egamma, Double_t xplus){
 
 }
 
-Double_t muonprod(Double_t Egamma){
+vector<Double_t> muonprod(Double_t Egamma){
 
 	Double_t xmin = 1.0/2.0 - sqrt(1.0/4.0 - MUON_MASS/Egamma);
 	Double_t xmax = 1.0/2.0 + sqrt(1.0/4.0 - MUON_MASS/Egamma);
 
 	Double_t xplus = xmin + gRandom->Uniform(0,1)*(xmax-xmin);
 
+	Double_t Eplus = xplus*Egamma;
+	Double_t Eminus = Egamma - Eplus;
+
+
 	Double_t W = calcW(ZSi, ASi, Egamma, xplus);
 	Double_t Winf = calcW(ZSi, ASi, Egamma, 1);
 
-	// std::cout << "W: " << W << "\tWinf: " << Winf;
-
 	Double_t nDiffCross = (1-(4.0/3.0)*xplus*(1-xplus))*TMath::Log(W)/TMath::Log(Winf);
 
-	return nDiffCross;
+	if(nDiffCross < 0){
+		nDiffCross = 0;
+	}
+
+	vector<Double_t> outv;
+
+	outv.push_back(nDiffCross);
+	outv.push_back(Eplus);
+	outv.push_back(Eminus);
+
+	return outv;
+
+}
+
+bool muontest(Double_t Egamma, Double_t Eplus){
+
+	Double_t xplus = Eplus/Egamma;
+
+	Double_t W = calcW(ZSi, ASi, Egamma, xplus);
+	Double_t Wmax = calcW(ZSi, ASi, Egamma, 0.5);
+
+	Double_t tDiffCross = (1-(4.0/3.0)*xplus*(1-xplus))*TMath::Log(W)/TMath::Log(Wmax);
+	
+	if(tDiffCross > gRandom->Uniform(0,1)){
+		return true;
+	}else{
+		return false;
+	}
 
 }
 
@@ -116,13 +145,20 @@ void muonconvmc(){
 Int_t nbins = 100;
 
 TCanvas *Canvas1 = new TCanvas("Canvas1","Photon Energy Dist.",0,100,600,500);
-TCanvas *Canvas2 = new TCanvas("Canvas2","",0,100,600,500);
+TCanvas *Canvas2 = new TCanvas("Canvas2","Pi Zero Hist",0,100,600,500);
+TCanvas *Canvas3 = new TCanvas("Canvas3","Generated Cross Section",0,100,600,500);
+TCanvas *Canvas4 = new TCanvas("Canvas4","Generated Cross Section",0,100,600,500);
+//TCanvas *Canvas5 = new TCanvas("Canvas5","X+ Spectra",0,100,600,500);
 
 TH1F *PhotonEHist = new TH1F("PhotonEHist","Photon Energy Dist.; Photon Energy [GeV]; Count [#]",nbins,0,25);
 
 TH1F *AtlasH = new TH1F("AtlasH","MC Atlas Histogram ; pT [GeV]; Count [#]",nbins,0.5,50);
 
-TH1F *CrossHist = new TH1F("CrossHist","Generated Cross Section; Value; Count [#]",nbins,0,0.25);
+TH1F *CrossHist = new TH1F("CrossHist","Generated Cross Section; Value; Count [#]",nbins,0,1);
+
+TH1F *TCrossHist = new TH1F("TCrossHist","Test Generated Cross Section; x+; Count [#]",nbins,0,1);
+
+TH1F *XPSpecHist = new TH1F("XPSpecHist","x+ spectra; x+; Count [#]",nbins,0,1);
 
 //--------------------------------------------------------------------
 // Fitting ATLAS Function
@@ -143,7 +179,7 @@ TGraphAsymmErrors *g1 =(TGraphAsymmErrors*)f->Get("Table 12/Graph1D_y1");
 //	NOTE: The starting value of the function is chosen due to 
 //		  the divergent nature at the origin
 
-TF1 *func = new TF1("fitf",fitf,1e-3,60,4);
+TF1 *func = new TF1("fitf",fitf,1e-3,100,4);
 func->SetParameters(1,1,2,-1);
 g1->Fit(func,"QN");
 
@@ -151,7 +187,7 @@ Double_t *params = func->GetParameters();
 func->SetParameters(params);
 
 // Normalize function
-Double_t norm = func->Integral(1e-3,60);
+Double_t norm = func->Integral(1e-3,100);
 params[0] = params[0]/norm;
 func->SetParameters(params);
 
@@ -164,17 +200,18 @@ Int_t num = NDECAY; // Number of Decays
 Double_t pizero_pt; // Random pi zero pT based on ATLAS distribution
 Double_t eta;    	// random eta of pion (assumed flat)
 Double_t phi; 	 	// random phi of pion (assumed flat)
-
+bool difftest;
 
 TLorentzVector pizero;
 vector<Double_t> photovect;
+vector<Double_t> outv;
 
 Double_t nDiffCross;
 
 for(UInt_t i = 0; i < NDECAY; ++i){
 
 	// Get a pT for the neutral pion
-	pizero_pt = func->GetRandom(6,50);
+	pizero_pt = func->GetRandom(6,100);
 
 	AtlasH->Fill(pizero_pt);
 
@@ -185,13 +222,23 @@ for(UInt_t i = 0; i < NDECAY; ++i){
 	// Generate two photons provided the above parameters
 	photovect = gammaprod(pizero_pt,eta,phi);
 
+	// photovect.push_back(6.1);
+	// photovect.push_back(6.1);
 
 	for(UInt_t j = 0; j < 2; ++j){
-		if(photovect.at(j) > 4*MUON_MASS){
+		if(photovect.at(j) > 6){
 			PhotonEHist->Fill(photovect.at(j));
-			nDiffCross = muonprod(photovect.at(j));
+			outv = muonprod(photovect.at(j));
 			// std::cout << "\t Egamma: " << photovect.at(j) << "\tnDiffCross: " << nDiffCross << std::endl;
-			CrossHist->Fill(nDiffCross);
+			CrossHist->Fill(outv.at(0));
+
+			difftest = muontest(photovect.at(j),outv.at(1));
+			XPSpecHist->Fill(outv.at(1)/photovect.at(j));
+
+			if(difftest == true){
+
+				TCrossHist->Fill(outv.at(1)/photovect.at(j));
+			}
 		}
 
 	}
@@ -204,6 +251,15 @@ Canvas1->cd();
 PhotonEHist->Draw();
 
 Canvas2->cd();
+AtlasH->Draw();
+
+Canvas3->cd();
 CrossHist->Draw();
+
+Canvas4->cd();
+TCrossHist->Draw();
+
+// Canvas5->cd();
+// XPSpecHist->Draw();
 
 }
