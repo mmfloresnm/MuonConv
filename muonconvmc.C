@@ -22,7 +22,7 @@
 #define MUON_MASS 0.10565837 // GeV
 #define e_MASS 5.109989e-4 // GeV
 
-#define NDECAY 1e6 // Number of Decays computed
+#define NDECAY 5e6 // Number of Decays computed
 
 #define ZSi 14.0
 #define ASi 28.0855 
@@ -136,6 +136,53 @@ bool muontest(Double_t Egamma, Double_t Eplus){
 
 }
 
+Double_t cprefactor(Double_t Z, Double_t mass){
+
+	Double_t fstruc = 1.0/137.035999084;
+	Double_t spdlgt = 299792458;
+	Double_t echge = 1.602e-19;
+	Double_t k = 8.99e9;
+
+	Double_t kgmass = mass*pow(10,9)*echge/(spdlgt*spdlgt);
+
+	Double_t rc = k*echge*echge/(kgmass*spdlgt*spdlgt);
+
+	Double_t prefactor = 4.0 * fstruc * ZSi * ZSi * rc * rc;
+
+	return prefactor;
+
+}
+
+Double_t cexpr(Double_t *x, Double_t *par){
+
+	Double_t xx = x[0];
+	Double_t prefactor = cprefactor(ZSi,MUON_MASS);
+	Double_t nCross = prefactor*(1 - 4.0/3.0*xx*(1-xx))*TMath::Log(calcW(ZSi,ASi,par[0],xx));
+	return nCross;
+}
+
+bool convprob(Double_t Egamma){
+
+	Double_t sigmainf;
+	Double_t crssec;
+
+	Double_t xmin = 1.0/2.0 - sqrt(1.0/4.0 - MUON_MASS/Egamma);
+	Double_t xmax = 1.0/2.0 + sqrt(1.0/4.0 - MUON_MASS/Egamma);
+
+	TF1 *func = new TF1("cexpr",cexpr,xmin,xmax,1);
+	func->SetParameter(0,Egamma);
+	sigmainf = 7.0/9.0*cprefactor(ZSi,MUON_MASS)*TMath::Log(calcW(ZSi,ASi,Egamma,1));
+
+	crssec = func->Integral(xmin,xmax)/sigmainf;
+
+	if(gRandom->Uniform(0,1)< crssec){
+		return true;
+	}else{
+		return false;
+	}
+
+}
+
 void muonconvmc(){
 
 //--------------------------------------------------------------------
@@ -150,7 +197,7 @@ TCanvas *Canvas3 = new TCanvas("Canvas3","Generated Cross Section",0,100,600,500
 TCanvas *Canvas4 = new TCanvas("Canvas4","Generated Cross Section",0,100,600,500);
 //TCanvas *Canvas5 = new TCanvas("Canvas5","X+ Spectra",0,100,600,500);
 
-TH1F *PhotonEHist = new TH1F("PhotonEHist","Photon Energy Dist.; Photon Energy [GeV]; Count [#]",nbins,0,25);
+TH1F *PhotonEHist = new TH1F("PhotonEHist","Photon Energy Dist.; Photon Energy [GeV]; Count [#]",nbins,6,25);
 
 TH1F *AtlasH = new TH1F("AtlasH","MC Atlas Histogram ; pT [GeV]; Count [#]",nbins,0.5,50);
 
@@ -158,7 +205,9 @@ TH1F *CrossHist = new TH1F("CrossHist","Generated Cross Section; Value; Count [#
 
 TH1F *TCrossHist = new TH1F("TCrossHist","Test Generated Cross Section; x+; Count [#]",nbins,0,1);
 
-TH1F *XPSpecHist = new TH1F("XPSpecHist","x+ spectra; x+; Count [#]",nbins,0,1);
+TH1F *XPSpecHist = new TH1F("XPSpecHist","x+ spectra; E(mu+); Count [#]",nbins,6,25);
+
+TH1F *XPConvHist = new TH1F("XPConvHist","x+ spectra (with conversion calc); E(mu+); Count [#]",nbins,6,25);
 
 //--------------------------------------------------------------------
 // Fitting ATLAS Function
@@ -229,16 +278,11 @@ for(UInt_t i = 0; i < NDECAY; ++i){
 		if(photovect.at(j) > 6){
 			PhotonEHist->Fill(photovect.at(j));
 			outv = muonprod(photovect.at(j));
-			// std::cout << "\t Egamma: " << photovect.at(j) << "\tnDiffCross: " << nDiffCross << std::endl;
-			CrossHist->Fill(outv.at(0));
-
-			difftest = muontest(photovect.at(j),outv.at(1));
-			XPSpecHist->Fill(outv.at(1)/photovect.at(j));
-
-			if(difftest == true){
-
-				TCrossHist->Fill(outv.at(1)/photovect.at(j));
+			XPSpecHist->Fill(outv.at(1));
+			if(convprob(photovect.at(j)) == true){
+				XPConvHist->Fill(outv.at(1));
 			}
+
 		}
 
 	}
@@ -248,16 +292,16 @@ for(UInt_t i = 0; i < NDECAY; ++i){
 f->Close();
 
 Canvas1->cd();
-PhotonEHist->Draw();
-
-Canvas2->cd();
 AtlasH->Draw();
 
+Canvas2->cd();
+PhotonEHist->Draw();
+
 Canvas3->cd();
-CrossHist->Draw();
+XPSpecHist->Draw();
 
 Canvas4->cd();
-TCrossHist->Draw();
+XPConvHist->Draw();
 
 // Canvas5->cd();
 // XPSpecHist->Draw();
