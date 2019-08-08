@@ -90,6 +90,7 @@ Double_t calcW(UInt_t  Z, Double_t A, Double_t Egamma, Double_t xplus){
 }
 
 vector<Double_t> muonprod(Double_t Egamma){
+// Generates plus/minus muon energies and the value of the differential cross section
 
 	Double_t xmin = 1.0/2.0 - sqrt(1.0/4.0 - MUON_MASS/Egamma);
 	Double_t xmax = 1.0/2.0 + sqrt(1.0/4.0 - MUON_MASS/Egamma);
@@ -119,24 +120,9 @@ vector<Double_t> muonprod(Double_t Egamma){
 
 }
 
-bool muontest(Double_t Egamma, Double_t Eplus){
-
-	Double_t xplus = Eplus/Egamma;
-
-	Double_t W = calcW(ZSi, ASi, Egamma, xplus);
-	Double_t Wmax = calcW(ZSi, ASi, Egamma, 0.5);
-
-	Double_t tDiffCross = (1-(4.0/3.0)*xplus*(1-xplus))*TMath::Log(W)/TMath::Log(Wmax);
-	
-	if(tDiffCross > gRandom->Uniform(0,1)){
-		return true;
-	}else{
-		return false;
-	}
-
-}
 
 Double_t cprefactor(Double_t Z, Double_t mass){
+// Calculate the classical radius of a particle
 
 	Double_t fstruc = 1.0/137.035999084;
 	Double_t spdlgt = 299792458;
@@ -154,6 +140,7 @@ Double_t cprefactor(Double_t Z, Double_t mass){
 }
 
 Double_t cexpr(Double_t *x, Double_t *par){
+// Expression for the differetial cross section
 
 	Double_t xx = x[0];
 	Double_t prefactor = cprefactor(ZSi,MUON_MASS);
@@ -162,6 +149,7 @@ Double_t cexpr(Double_t *x, Double_t *par){
 }
 
 bool convprob(Double_t Egamma){
+// Determine whether a photo will pair produce
 
 	Double_t sigmainf;
 	Double_t crssec;
