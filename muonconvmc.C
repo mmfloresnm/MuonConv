@@ -22,7 +22,7 @@
 #define MUON_MASS 0.10565837 // GeV
 #define e_MASS 5.109989e-4 // GeV
 
-#define NDECAY 5e6 // Number of Decays computed
+#define NDECAY 1e7 // Number of Decays computed
 
 #define ZSi 14.0
 #define ASi 28.0855 
@@ -41,23 +41,59 @@ vector<Double_t> gammaprod(Double_t pt,Double_t eta,Double_t phi){
 
 	vector<Double_t> outv;
 
-	Double_t Epi, ctheta;
+	Double_t Epi, ctheta, gtheta, gphi;
 	Double_t gamma, beta;
 	Double_t Egamma1, Egamma2;
 
 	TLorentzVector pizero;
 	pizero.SetPtEtaPhiM(pt,eta,phi,PIZERO_MASS);
 
+	TVector3 pizero3 = pizero.Vect();
+	TVector3 pi_unitv = pizero3.Unit();
+	TVector3 boostv =  -pizero.Beta()*pizero3.Unit();
+
 	Epi = pizero.E();
+	gamma = pizero.Gamma();
+	beta = pizero.Beta();
+
+	TLorentzVector gfourv1, gfourv2;
+
 	ctheta = gRandom->Uniform(-1,1);
-	gamma = Epi/PIZERO_MASS;
-	beta = sqrt(1-1/pow(gamma,2));
+	gtheta = gRandom->Uniform(0,TMath::Pi());
+	gphi = gRandom->Uniform(0,2*TMath::Pi());
 
-	Egamma1 = gamma*PIZERO_MASS/2*(1 + beta*ctheta);
-	Egamma2 = gamma*PIZERO_MASS/2*(1 - beta*ctheta);
 
-	outv.push_back(Egamma1);
-	outv.push_back(Egamma2);
+	// Create forward photon in rest frame
+	Double_t pg = PIZERO_MASS/2;
+
+	gfourv1.SetE(pg);
+	gfourv1.SetPx(pg*TMath::Sin(gtheta)*TMath::Cos(gphi));
+	gfourv1.SetPy(pg*TMath::Sin(gtheta)*TMath::Sin(gphi));
+	gfourv1.SetPz(pg*TMath::Cos(gtheta));
+
+	// Create backward photon in rest frame
+
+	gfourv2.SetE(pg);
+	gfourv2.SetPx(-pg*TMath::Sin(gtheta)*TMath::Cos(gphi));
+	gfourv2.SetPy(-pg*TMath::Sin(gtheta)*TMath::Sin(gphi));
+	gfourv2.SetPz(-pg*TMath::Cos(gtheta));
+
+	// Stuff for consisency tests -- should remove later
+
+	TVector3 test1 = gfourv1.Vect();
+	TVector3 test2 = gfourv2.Vect();
+
+	Egamma1 = gamma*(PIZERO_MASS/2 - boostv*test1);
+	Egamma2 = gamma*(PIZERO_MASS/2 - boostv*test2);
+
+	// Boost back into the lab frame
+	gfourv1.Boost(-boostv);
+	gfourv2.Boost(-boostv);
+
+	// std::cout  << "TLorentz: " << gfourv1.E() << "\tBy Hand E1: " << Egamma1 << std::endl;
+
+	outv.push_back(gfourv1.E());
+	outv.push_back(gfourv2.E());
 
 	return outv;
 }
@@ -232,8 +268,6 @@ func->SetParameters(params);
 // Enter main generation
 //--------------------------------------------------------------------
 
-Int_t num = NDECAY; // Number of Decays
-
 Double_t pizero_pt; // Random pi zero pT based on ATLAS distribution
 Double_t eta;    	// random eta of pion (assumed flat)
 Double_t phi; 	 	// random phi of pion (assumed flat)
@@ -258,9 +292,6 @@ for(UInt_t i = 0; i < NDECAY; ++i){
 
 	// Generate two photons provided the above parameters
 	photovect = gammaprod(pizero_pt,eta,phi);
-
-	// photovect.push_back(6.1);
-	// photovect.push_back(6.1);
 
 	for(UInt_t j = 0; j < 2; ++j){
 		if(photovect.at(j) > 6){

@@ -87,18 +87,23 @@ void muonangle(){
 	TCanvas *Canvas1 = new TCanvas("Canvas1","Tests",0,100,600,500);
 	TCanvas *Canvas2 = new TCanvas("Canvas2","Tests",0,100,600,500);
 	TCanvas *Canvas3 = new TCanvas("Canvas3","Tests",0,100,600,500);
+	TCanvas *Canvas4 = new TCanvas("Canvas4","Tests",0,100,600,500);
 
 	TH1F *tHist = new TH1F("tHist","Generated t-distribution ; t ; Count [#]",50,0,1);
 	TH1F *psiHist = new TH1F("psiHist","Generated psi-distribution ; psi ; Count [#]",50,0,2*TMath::Pi());
 	TH1F *rhoHist = new TH1F("rhoHist","Generated rho-distribution ; rho ; Count [#]",50,0,1);
+	TH1F *thetapHist = new TH1F("thetapHist","Generated Theta_+-distribution ; Theta_+ ; Count [#]",50,0,0.1);
+
 
 	Double_t xplus = 0.5;
 	Double_t Egamma = 10;
 
-	Double_t t;
+	Double_t t, u;
 	Double_t Psi;
+	Double_t thetam, thetap, phi;
 	Double_t rho, rhomax2, beta;
 	Double_t C2;
+	Double_t gammap, gammam;
 	Double_t R1, R2, R3;
 
 	TF1 *func1 = new TF1("f1",f1,0,1,2);
@@ -110,6 +115,8 @@ void muonangle(){
 
 	UInt_t i = 0;
 
+	// Generate t and rho distributions
+
 	while(i < 1e6){
 
 		t = gRandom->Uniform(0,1);
@@ -118,8 +125,7 @@ void muonangle(){
 		R3 = gRandom->Uniform(0,1);
 
 		if(func1->Eval(t) < R1) continue;
-		++i;
-		tHist->Fill(t);
+				tHist->Fill(t);
 
 		C2 = calcC2(xplus,Egamma,t, ZEl);
 		rhomax2 = calcrhomax2(t, AEl);
@@ -128,13 +134,42 @@ void muonangle(){
 		rho = pow(C2*(pow(TMath::E(),beta*R3) - 1),1.0/4.0);
 		rhoHist->Fill(rho);
 
+		++i;
+
+	}
+
+	// Generate t and psi distributions
+
+	i = 0;
+
+	while(i < 1e6){
+
+		t = gRandom->Uniform(0,1);
+		R1 = gRandom->Uniform(0,1);
+		R2 = gRandom->Uniform(0,1);
+		R3 = gRandom->Uniform(0,1);
+
+		if(func1->Eval(t) < R1) continue;
+
 		func2->SetParameters(xplus,t);
 		Psi = gRandom->Uniform(0,2*TMath::Pi());
 
 		if(func2->Eval(Psi) < R2) continue;
 		psiHist->Fill(Psi);
+
+		gammap = xplus*Egamma/MUON_MASS;
+		gammam = (1-xplus)*Egamma/MUON_MASS;
+		u = sqrt(1/t - 1);
+		
+		thetap = (u + rho/2*TMath::Cos(Psi))/gammap;
+		thetam = (u - rho/2*TMath::Cos(Psi))/gammam;
+		phi = rho/u*TMath::Sin(Psi);
+
+		thetapHist->Fill(thetap);
+		++i;
 		
 	}
+
 
 	Canvas1->cd();
 	tHist->Draw();
@@ -144,4 +179,8 @@ void muonangle(){
 
 	Canvas3->cd();
 	rhoHist->Draw();
+
+	Canvas4->cd();
+	thetapHist->Draw();
+
 }
