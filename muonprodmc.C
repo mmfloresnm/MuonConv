@@ -58,11 +58,6 @@ vector<Double_t> muonprod(Double_t Egamma){
 		nDiffCross = 0;
 	}
 
-	if(Eplus > 0.9*Egamma){
-
-		//std::cout << "Egamma: " << Egamma << "\txplus: " << xplus << "\t nDiffCross: " << nDiffCross << "\n";
-	}
-
 	vector<Double_t> outv;
 
 	outv.push_back(nDiffCross);

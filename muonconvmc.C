@@ -1,6 +1,6 @@
 // muonconvmc.C
 // Marcos Flores
-// 2019 July 25;
+// 2019 August 12;
 //
 // Monte-Carlo for \pi_0\to 2\gamma
 // 
@@ -22,10 +22,10 @@
 #define MUON_MASS 0.10565837 // GeV
 #define e_MASS 5.109989e-4 // GeV
 
-#define NDECAY 1e7 // Number of Decays computed
+#define NDECAY 1e6 // Number of Decays computed
 
-#define ZSi 14.0
-#define ASi 28.0855 
+#define ZEl 14.0
+#define AEl 28.0855 
 
 Double_t fitf(Double_t *x, Double_t *par)
 // Fit Function for the ATLAS Data
@@ -35,11 +35,11 @@ Double_t fitf(Double_t *x, Double_t *par)
 	return fitval;
 }
 
-vector<Double_t> gammaprod(Double_t pt,Double_t eta,Double_t phi){
-// For a given pi-zero pT calculates two photon energies and outputs 
+vector<TLorentzVector> gammaprod(Double_t pt,Double_t eta,Double_t phi){
+// For a given pi-zero pT calculates two photon four vectors and outputs 
 // them as a vector
 
-	vector<Double_t> outv;
+	vector<TLorentzVector> outv;
 
 	Double_t Epi, ctheta, gtheta, gphi;
 	Double_t gamma, beta;
@@ -80,11 +80,11 @@ vector<Double_t> gammaprod(Double_t pt,Double_t eta,Double_t phi){
 
 	// Stuff for consisency tests -- should remove later
 
-	TVector3 test1 = gfourv1.Vect();
-	TVector3 test2 = gfourv2.Vect();
+	// TVector3 test1 = gfourv1.Vect();
+	// TVector3 test2 = gfourv2.Vect();
 
-	Egamma1 = gamma*(PIZERO_MASS/2 - boostv*test1);
-	Egamma2 = gamma*(PIZERO_MASS/2 - boostv*test2);
+	// Egamma1 = gamma*(PIZERO_MASS/2 - boostv*test1);
+	// Egamma2 = gamma*(PIZERO_MASS/2 - boostv*test2);
 
 	// Boost back into the lab frame
 	gfourv1.Boost(-boostv);
@@ -92,8 +92,8 @@ vector<Double_t> gammaprod(Double_t pt,Double_t eta,Double_t phi){
 
 	// std::cout  << "TLorentz: " << gfourv1.E() << "\tBy Hand E1: " << Egamma1 << std::endl;
 
-	outv.push_back(gfourv1.E());
-	outv.push_back(gfourv2.E());
+	outv.push_back(gfourv1);
+	outv.push_back(gfourv2);
 
 	return outv;
 }
@@ -125,38 +125,6 @@ Double_t calcW(UInt_t  Z, Double_t A, Double_t Egamma, Double_t xplus){
 
 }
 
-vector<Double_t> muonprod(Double_t Egamma){
-// Generates plus/minus muon energies and the value of the differential cross section
-
-	Double_t xmin = 1.0/2.0 - sqrt(1.0/4.0 - MUON_MASS/Egamma);
-	Double_t xmax = 1.0/2.0 + sqrt(1.0/4.0 - MUON_MASS/Egamma);
-
-	Double_t xplus = xmin + gRandom->Uniform(0,1)*(xmax-xmin);
-
-	Double_t Eplus = xplus*Egamma;
-	Double_t Eminus = Egamma - Eplus;
-
-
-	Double_t W = calcW(ZSi, ASi, Egamma, xplus);
-	Double_t Winf = calcW(ZSi, ASi, Egamma, 1);
-
-	Double_t nDiffCross = (1-(4.0/3.0)*xplus*(1-xplus))*TMath::Log(W)/TMath::Log(Winf);
-
-	if(nDiffCross < 0){
-		nDiffCross = 0;
-	}
-
-	vector<Double_t> outv;
-
-	outv.push_back(nDiffCross);
-	outv.push_back(Eplus);
-	outv.push_back(Eminus);
-
-	return outv;
-
-}
-
-
 Double_t cprefactor(Double_t Z, Double_t mass){
 // Calculate the classical radius of a particle
 
@@ -169,7 +137,7 @@ Double_t cprefactor(Double_t Z, Double_t mass){
 
 	Double_t rc = k*echge*echge/(kgmass*spdlgt*spdlgt);
 
-	Double_t prefactor = 4.0 * fstruc * ZSi * ZSi * rc * rc;
+	Double_t prefactor = 4.0 * fstruc * ZEl * ZEl * rc * rc;
 
 	return prefactor;
 
@@ -179,8 +147,8 @@ Double_t cexpr(Double_t *x, Double_t *par){
 // Expression for the differetial cross section
 
 	Double_t xx = x[0];
-	Double_t prefactor = cprefactor(ZSi,MUON_MASS);
-	Double_t nCross = prefactor*(1 - 4.0/3.0*xx*(1-xx))*TMath::Log(calcW(ZSi,ASi,par[0],xx));
+	Double_t prefactor = cprefactor(ZEl,MUON_MASS);
+	Double_t nCross = prefactor*(1 - 4.0/3.0*xx*(1-xx))*TMath::Log(calcW(ZEl,AEl,par[0],xx));
 	return nCross;
 }
 
@@ -195,7 +163,7 @@ bool convprob(Double_t Egamma){
 
 	TF1 *func = new TF1("cexpr",cexpr,xmin,xmax,1);
 	func->SetParameter(0,Egamma);
-	sigmainf = 7.0/9.0*cprefactor(ZSi,MUON_MASS)*TMath::Log(calcW(ZSi,ASi,Egamma,1));
+	sigmainf = 7.0/9.0*cprefactor(ZEl,MUON_MASS)*TMath::Log(calcW(ZEl,AEl,Egamma,1));
 
 	crssec = func->Integral(xmin,xmax)/sigmainf;
 
@@ -207,6 +175,165 @@ bool convprob(Double_t Egamma){
 
 }
 
+Double_t calcC1(Double_t xplus, Double_t Egamma, Double_t A){
+
+	Double_t C1 = pow(0.35*pow(A,0.27),2)/(xplus*(1-xplus)*Egamma/MUON_MASS);
+
+	return C1;
+
+}
+
+Double_t calcC2(Double_t xplus, Double_t Egamma, Double_t t, Double_t Z){
+
+	Double_t xminus = 1-xplus;
+	Double_t Z13 = pow(Z,-1.0/3.0);
+
+	Double_t leadcoff = 4/sqrt(xplus*xminus);
+	Double_t term1 = pow(MUON_MASS/(2*Egamma*xplus*xminus*t),2);
+	Double_t term2 = pow(e_MASS/(183*Z13*MUON_MASS),2);
+
+	Double_t C2 = leadcoff*pow(term1 + term2, 2);
+
+	return C2;
+
+}
+
+Double_t calcrhomax2(Double_t t, Double_t A){
+
+	return 1.9/pow(A,0.27)*(1/t - 1);
+}
+
+Double_t calcbeta(Double_t C2, Double_t rhomax2){
+
+	return TMath::Log((C2 + pow(rhomax2,2))/C2);
+}
+
+Double_t f1(Double_t *t, Double_t *par){
+
+	Double_t tt = t[0];
+	Double_t Egamma = par[0];
+	Double_t xplus = par[1];
+
+	Double_t C1 = calcC1(xplus,Egamma,ZEl);
+
+	Double_t num = 1 - 2*xplus*(1-xplus) + 4*xplus*(1-xplus)*tt*(1 - tt);
+	Double_t denom = 1 + C1/(tt*tt);
+
+	return num/denom;
+
+}
+
+Double_t f2(Double_t *psi, Double_t *par){
+
+	Double_t Psi = psi[0];
+	Double_t xplus = par[0];
+	Double_t xminus = 1-par[0];
+	Double_t t = par[1];
+
+	Double_t val;
+
+	val = 1 - 2*xplus*xminus + 4*xplus*xminus*t*(1 - t)*(1 + TMath::Cos(2*Psi));
+
+	return val;
+}
+
+vector<TLorentzVector> muonprod(TLorentzVector photo4vect){
+// Generates 4 vectors for muon +- given a photon four vector
+
+	Double_t Egamma = photo4vect.E();
+
+	Double_t xmin = 1.0/2.0 - sqrt(1.0/4.0 - MUON_MASS/Egamma);
+	Double_t xmax = 1.0/2.0 + sqrt(1.0/4.0 - MUON_MASS/Egamma);
+
+	Double_t xplus = xmin + gRandom->Uniform(0,1)*(xmax-xmin);
+
+	Double_t Eplus = xplus*Egamma;
+	Double_t Eminus = Egamma - Eplus;
+
+	Double_t pplus = sqrt(pow(Eplus,2) - pow(MUON_MASS,2));
+	Double_t pminus = sqrt(pow(Eminus,2) - pow(MUON_MASS,2));
+
+	// Variables needed for angular generation
+	Double_t t, u;
+	Double_t Psi;
+	Double_t thetam, thetap, phi;
+	Double_t rho, rhomax2, beta;
+	Double_t C2;
+	Double_t gammap, gammam;
+	Double_t R1, R2, R3;
+
+	TVector3 nplus, nminus;
+
+	TF1 *func1 = new TF1("f1",f1,0,1,2);
+	TF1 *func2 = new TF1("f2",f2,0,2*TMath::Pi(),2);
+
+	func1->SetParameters(Egamma,xplus);
+
+	bool valtest = true;
+
+	// Run until satisfactory angles are generated
+	while(valtest == true){
+
+		t = gRandom->Uniform(0,1);
+		R1 = gRandom->Uniform(0,1);
+		R2 = gRandom->Uniform(0,1);
+		R3 = gRandom->Uniform(0,1);
+
+		if(func1->Eval(t) < R1) continue;
+
+		func2->SetParameters(xplus,t);
+		Psi = gRandom->Uniform(0,2*TMath::Pi());
+
+		if(func2->Eval(Psi) < R2) continue;
+
+		gammap = xplus*Egamma/MUON_MASS;
+		gammam = (1-xplus)*Egamma/MUON_MASS;
+		u = sqrt(1/t - 1);
+
+		thetap = (u + rho/2*TMath::Cos(Psi))/gammap;
+		thetam = (u - rho/2*TMath::Cos(Psi))/gammam;
+		phi = rho/u*TMath::Sin(Psi);
+
+		valtest = false;
+
+	}
+
+	Double_t phi0 = gRandom->Uniform(0,2*TMath::Pi());
+
+	nplus.SetX(TMath::Sin(thetap)*TMath::Cos(phi0 + phi/2));
+	nplus.SetY(TMath::Sin(thetap)*TMath::Sin(phi0 + phi/2));
+	nplus.SetZ(TMath::Cos(phi0 + phi/2));
+
+	nminus.SetX(-TMath::Sin(thetap)*TMath::Cos(phi0 - phi/2));
+	nminus.SetY(-TMath::Sin(thetap)*TMath::Sin(phi0 - phi/2));
+	nminus.SetZ(TMath::Cos(phi0 + phi/2));
+
+	TVector3 zhat(0.0,0.0,1.0);
+	TVector3 vec = photo4vect.Vect();
+	vec = vec.Unit();
+
+	TVector3 crossprod = vec.Cross(zhat);
+	Double_t theta = vec.Theta();
+
+	nplus.Rotate(-theta,crossprod.Unit());
+	nminus.Rotate(-theta,crossprod.Unit());
+
+	TLorentzVector muplus4vec(pplus*nplus,Eplus);
+	TLorentzVector muminus4vec(pminus*nminus,Eminus);
+
+	vector<TLorentzVector> outv;
+
+	outv.push_back(muplus4vec);
+	outv.push_back(muminus4vec);
+
+	return outv;
+
+}
+
+//--------------------------------------------------------------------
+// main()
+//--------------------------------------------------------------------
+
 void muonconvmc(){
 
 //--------------------------------------------------------------------
@@ -215,23 +342,19 @@ void muonconvmc(){
 
 Int_t nbins = 100;
 
-TCanvas *Canvas1 = new TCanvas("Canvas1","Photon Energy Dist.",0,100,600,500);
-TCanvas *Canvas2 = new TCanvas("Canvas2","Pi Zero Hist",0,100,600,500);
-TCanvas *Canvas3 = new TCanvas("Canvas3","Generated Cross Section",0,100,600,500);
-TCanvas *Canvas4 = new TCanvas("Canvas4","Generated Cross Section",0,100,600,500);
+// TCanvas *Canvas1 = new TCanvas("Canvas1","Photon Energy Dist.",0,100,600,500);
+TCanvas *Canvas2 = new TCanvas("Canvas2","",0,100,600,500);
+TCanvas *Canvas3 = new TCanvas("Canvas3","",0,100,600,500);
+TCanvas *Canvas4 = new TCanvas("Canvas4","",0,100,600,500);
 //TCanvas *Canvas5 = new TCanvas("Canvas5","X+ Spectra",0,100,600,500);
 
-TH1F *PhotonEHist = new TH1F("PhotonEHist","Photon Energy Dist.; Photon Energy [GeV]; Count [#]",nbins,6,25);
+TH1F *PhotonEHist = new TH1F("PhotonEHist","Photon Pt Dist.; Photon Energy [GeV]; Count [#]",nbins,6,25);
 
 TH1F *AtlasH = new TH1F("AtlasH","MC Atlas Histogram ; pT [GeV]; Count [#]",nbins,0.5,50);
 
-TH1F *CrossHist = new TH1F("CrossHist","Generated Cross Section; Value; Count [#]",nbins,0,1);
+TH1F *MuPlusHist = new TH1F("MuPlusHist","Positive Muon pT Spectra; pT [GeV]; Count [#]",nbins,6,30);
 
-TH1F *TCrossHist = new TH1F("TCrossHist","Test Generated Cross Section; x+; Count [#]",nbins,0,1);
-
-TH1F *XPSpecHist = new TH1F("XPSpecHist","x+ spectra; E(mu+); Count [#]",nbins,6,25);
-
-TH1F *XPConvHist = new TH1F("XPConvHist","x+ spectra (with conversion calc); E(mu+); Count [#]",nbins,6,25);
+TH1F *MuMinusHist = new TH1F("MuMinusHist","Negative Muon pT Spectra; pT [GeV]; Count [#]",nbins,6,30);
 
 //--------------------------------------------------------------------
 // Fitting ATLAS Function
@@ -274,8 +397,12 @@ Double_t phi; 	 	// random phi of pion (assumed flat)
 bool difftest;
 
 TLorentzVector pizero;
-vector<Double_t> photovect;
-vector<Double_t> outv;
+
+TVector3 photo3vect;
+
+vector<TLorentzVector> photo4vect;
+Double_t photoarr[2];
+vector<TLorentzVector> outv;
 
 Double_t nDiffCross;
 
@@ -291,38 +418,40 @@ for(UInt_t i = 0; i < NDECAY; ++i){
 	phi = gRandom->Uniform(-TMath::Pi(),TMath::Pi());
 
 	// Generate two photons provided the above parameters
-	photovect = gammaprod(pizero_pt,eta,phi);
+	photo4vect = gammaprod(pizero_pt,eta,phi);
+
+	photoarr[0] = photo4vect.at(0).E();
+	photoarr[1] = photo4vect.at(1).E();
+
+	// std::cout << "Photon 1 Energy: " << photoarr[0] << 
+	// "\tPhoton 2 Energy: " << photoarr[1] << std::endl;
 
 	for(UInt_t j = 0; j < 2; ++j){
-		if(photovect.at(j) > 6){
-			PhotonEHist->Fill(photovect.at(j));
-			outv = muonprod(photovect.at(j));
-			XPSpecHist->Fill(outv.at(1));
-			if(convprob(photovect.at(j)) == true){
-				XPConvHist->Fill(outv.at(1));
+		if(photoarr[j] > 6){
+			PhotonEHist->Fill(photo4vect.at(j).Pt());
+			if(convprob(photoarr[j]) == true){
+				outv = muonprod(photo4vect.at(j));
+				if(outv.at(0).Pt() > 6 && outv.at(1).Pt() > 6){
+					MuPlusHist->Fill(outv.at(0).Pt());
+					MuMinusHist->Fill(outv.at(1).Pt());
+				}
 			}
-
 		}
-
 	}
-
 }
 
 f->Close();
 
-Canvas1->cd();
-AtlasH->Draw();
+// Canvas1->cd();
+// AtlasH->Draw();
 
 Canvas2->cd();
 PhotonEHist->Draw();
 
 Canvas3->cd();
-XPSpecHist->Draw();
+MuPlusHist->Draw();
 
 Canvas4->cd();
-XPConvHist->Draw();
-
-// Canvas5->cd();
-// XPSpecHist->Draw();
+MuMinusHist->Draw();
 
 }

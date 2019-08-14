@@ -1,3 +1,4 @@
+
 #include <string>
 #include <Riostream.h>
 #include <TH1F.h>
@@ -80,18 +81,7 @@ Double_t f2(Double_t *psi, Double_t *par){
 
 }
 
-void muonangle(){
-
-	TCanvas *Canvas1 = new TCanvas("Canvas1","Tests",0,100,600,500);
-	TCanvas *Canvas2 = new TCanvas("Canvas2","Tests",0,100,600,500);
-	TCanvas *Canvas3 = new TCanvas("Canvas3","Tests",0,100,600,500);
-	TCanvas *Canvas4 = new TCanvas("Canvas4","Tests",0,100,600,500);
-
-	TH1F *tHist = new TH1F("tHist","Generated t-distribution ; t ; Count [#]",50,0,1);
-	TH1F *psiHist = new TH1F("psiHist","Generated psi-distribution ; psi ; Count [#]",50,0,2*TMath::Pi());
-	TH1F *rhoHist = new TH1F("rhoHist","Generated rho-distribution ; rho ; Count [#]",50,0,1);
-	TH1F *thetapHist = new TH1F("thetapHist","Generated Theta_+-distribution ; Theta_+ ; Count [#]",50,0,0.1);
-
+void rotationtests(){
 
 	Double_t xplus = 0.5;
 	Double_t Egamma = 10;
@@ -104,43 +94,16 @@ void muonangle(){
 	Double_t gammap, gammam;
 	Double_t R1, R2, R3;
 
+	TVector3 nplus, nminus;
+
 	TF1 *func1 = new TF1("f1",f1,0,1,2);
 	TF1 *func2 = new TF1("f2",f2,0,2*TMath::Pi(),2);
 
 	func1->SetParameters(Egamma,xplus);
 
-	// func->Draw();
+	bool valtest = true;
 
-	UInt_t i = 0;
-
-	// Generate t and rho distributions
-
-	while(i < 1e6){
-
-		t = gRandom->Uniform(0,1);
-		R1 = gRandom->Uniform(0,1);
-		R2 = gRandom->Uniform(0,1);
-		R3 = gRandom->Uniform(0,1);
-
-		if(func1->Eval(t) < R1) continue;
-				tHist->Fill(t);
-
-		C2 = calcC2(xplus,Egamma,t, ZEl);
-		rhomax2 = calcrhomax2(t, AEl);
-		beta = calcbeta(C2,rhomax2);
-
-		rho = pow(C2*(pow(TMath::E(),beta*R3) - 1),1.0/4.0);
-		rhoHist->Fill(rho);
-
-		++i;
-
-	}
-
-	// Generate t and psi distributions
-
-	i = 0;
-
-	while(i < 1e6){
+	while(valtest == true){
 
 		t = gRandom->Uniform(0,1);
 		R1 = gRandom->Uniform(0,1);
@@ -153,32 +116,62 @@ void muonangle(){
 		Psi = gRandom->Uniform(0,2*TMath::Pi());
 
 		if(func2->Eval(Psi) < R2) continue;
-		psiHist->Fill(Psi);
 
 		gammap = xplus*Egamma/MUON_MASS;
 		gammam = (1-xplus)*Egamma/MUON_MASS;
 		u = sqrt(1/t - 1);
-		
+
 		thetap = (u + rho/2*TMath::Cos(Psi))/gammap;
 		thetam = (u - rho/2*TMath::Cos(Psi))/gammam;
 		phi = rho/u*TMath::Sin(Psi);
 
-		thetapHist->Fill(thetap);
-		++i;
-		
+		valtest = false;
+
 	}
 
+	Double_t phi0 = gRandom->Uniform(0,2*TMath::Pi());
 
-	Canvas1->cd();
-	tHist->Draw();
+	// nplus.SetX(TMath::Sin(thetap)*TMath::Cos(phi0 + phi/2));
+	// nplus.SetY(TMath::Sin(thetap)*TMath::Sin(phi0 + phi/2));
+	// nplus.SetZ(TMath::Cos(phi0 + phi/2));
 
-	Canvas2->cd();
-	psiHist->Draw();
+	// nminus.SetX(-TMath::Sin(thetap)*TMath::Cos(phi0 - phi/2));
+	// nminus.SetY(-TMath::Sin(thetap)*TMath::Sin(phi0 - phi/2));
+	// nminus.SetZ(TMath::Cos(phi0 + phi/2));
 
-	Canvas3->cd();
-	rhoHist->Draw();
+	nplus.SetX(-1.0);
+	nplus.SetY(0.0);
+	nplus.SetZ(0.0);
 
-	Canvas4->cd();
-	thetapHist->Draw();
+	nminus.SetX(0.0);
+	nminus.SetY(1.0);
+	nminus.SetZ(0.0);
+
+	TVector3 zhat(0.0,0.0,1.0);
+
+	TVector3 vec(1.0,1.0,0.0);	// Photon vector
+	vec = vec.Unit();
+
+	TVector3 crossprod = vec.Cross(zhat);
+	Double_t theta = vec.Theta();
+
+	vec.Rotate(-theta,crossprod.Unit());
+
+	nplus.Rotate(-theta,crossprod.Unit());
+	nminus.Rotate(-theta,crossprod.Unit());
+
+	std::cout << "nplus: " << "(" << nplus.X() << ", "  << nplus.Y() << ", " << nplus.Z() << ")" << std::endl;
+	
+	std::cout << "nminus: " << "(" << nminus.X() << ", "  << nminus.Y() << ", " << nminus.Z() << ")" << std::endl;
+
+
+	// std::cout << "Vec Theta: " << vec.Theta() << std::endl;
+
+	// std::cout << "Theta: " << vec.Theta() << "\tMag: " << vec.Mag() << std::endl;
 
 }
+
+
+
+
+
